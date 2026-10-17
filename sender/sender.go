@@ -1,15 +1,23 @@
 // Package sender is the library for programs that report their status to the
 // terminal they run in, using the Program Status Protocol (OSC 7501).
 //
-// Basic use:
+// Basic use, with the process-wide default sender. It finds the terminal
+// (standard output, else standard error, if either is one) the first time it
+// is needed, and does nothing when output is piped or redirected:
 //
-//	s := sender.New(os.Stdout)
-//	s.Send(ocs7501.Report{State: ocs7501.StateWorking, App: "mytool", Msg: "compiling"})
+//	sender.SetDefaults("mytool", "Deploy")   // app and title, once
+//	sender.Send(ocs7501.Report{State: ocs7501.StateWorking, Msg: "compiling"})
 //	...
-//	s.Send(ocs7501.Report{State: ocs7501.StateDone, App: "mytool", Msg: "built"})
+//	sender.Send(ocs7501.Report{State: ocs7501.StateDone, Msg: "built"})
 //
-// Every report replaces the previous one for the same id completely, so
-// repeat App (and Title) in each report.
+// To write somewhere else, or to have several senders, create one with New:
+//
+//	s := sender.New(w)
+//	s.Send(ocs7501.Report{State: ocs7501.StateWorking, App: "mytool"})
+//
+// A report replaces the previous one for the same id completely; a Sender
+// made with New does not add defaults, so repeat App and Title in each
+// report.
 //
 // Feature detection is optional: terminals ignore OSCs they do not know, so
 // a program may simply send reports. To detect support, write Sender.Query,
@@ -17,7 +25,7 @@
 // as it decides. The library never reads from the terminal itself, so it
 // cannot block on it.
 //
-// Sender and Detector are safe for concurrent use.
+// Everything in this package is safe for concurrent use.
 package sender
 
 import (
@@ -75,6 +83,16 @@ func (s *Sender) Clear(id string) error {
 // Detector.
 func (s *Sender) Query() error {
 	return s.write(ocs7501.QuerySequence + ocs7501.DeviceAttributes)
+}
+
+// hasWriter reports whether s can write anywhere.
+func (s *Sender) hasWriter() bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.w != nil
 }
 
 func (s *Sender) write(seq string) error {

@@ -29,3 +29,18 @@ func ExampleDetector() {
 	fmt.Println(res, features.SupportsState(ocs7501.StateBlocked))
 	// Output: supported false
 }
+
+func Example_default() {
+	// Normally there is nothing to set up: the first Send finds the terminal
+	// (standard output, else standard error) and does nothing at all when
+	// output is piped. SetOutput is for tests and special cases.
+	var out bytes.Buffer
+	sender.SetOutput(&out)
+	sender.SetDefaults("mytool", "Deploy") // added to every root report
+
+	sender.Send(ocs7501.Report{State: ocs7501.StateWorking, Progress: ocs7501.Percent(50)})
+	sender.Send(ocs7501.Report{State: ocs7501.StateDone, Msg: "ok"})
+
+	fmt.Printf("%q\n", out.String())
+	// Output: "\x1b]7501;state=working:progress=50:app=mytool:title=RGVwbG95\x1b\\\x1b]7501;state=done:app=mytool:title=RGVwbG95:msg=b2s=\x1b\\"
+}
