@@ -23,6 +23,9 @@ go build -o ocs7501.exe .
 .\ocs7501.exe
 ```
 
+Colour scheme: light pastel by default; `ocs7501 -dark` (also `--dark` or `/dark`) runs the TUI in a dark
+scheme. `-out path` (also `/out`) appends the raw bytes to a file instead of the terminal.
+
 Run it directly inside the terminal you want to talk to (Rex, Windows Terminal, ...).
 It writes to the console / controlling tty rather than stdout, so redirecting stdout
 doesn't matter. For testing without a real terminal: `ocs7501 -out sequences.log`

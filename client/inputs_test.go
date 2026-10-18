@@ -112,3 +112,11 @@ func TestInputValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizeArgs(t *testing.T) {
+	got := normalizeArgs([]string{"/dark", "-out", "/dark.log", "/out", "/?", "--dark", "/tmp/x"})
+	want := []string{"-dark", "-out", "/dark.log", "-out", "-h", "--dark", "/tmp/x"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("got %q want %q", got, want)
+	}
+}

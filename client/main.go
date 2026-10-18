@@ -17,33 +17,50 @@ import (
 	"github.com/rivo/tview"
 )
 
-// Light pastel palette.
+// Palette. The light pastel scheme is the default; -dark (or /dark) switches
+// to the dark one. Both are applied by applyTheme before any widget exists.
 var (
-	cBg         = tcell.NewHexColor(0xFBF9F5) // cream background
-	cText       = tcell.NewHexColor(0x3A3A4C) // dark slate text
-	cDim        = tcell.NewHexColor(0x8E8EA3) // secondary text
-	cBorder     = tcell.NewHexColor(0xB8A9E0) // lavender borders
-	cTitle      = tcell.NewHexColor(0x7A65C7) // violet titles
-	cField      = tcell.NewHexColor(0xE3EEFB) // pastel blue input fields
-	cLabel      = tcell.NewHexColor(0x4A7FA8) // steel-blue labels
-	cSel        = tcell.NewHexColor(0xD8CCF4) // selected list row
-	cMore       = tcell.NewHexColor(0xF1E8FA) // dropdown popup
-	cButton     = tcell.NewHexColor(0xCFEBDD) // mint buttons
-	cButtonText = tcell.NewHexColor(0x2F5D44)
-	cButtonHot  = tcell.NewHexColor(0xFFD9C7) // peach focused button
+	cBg, cText, cDim, cBorder, cTitle, cField             tcell.Color
+	cLabel, cSel, cMore, cButton, cButtonText, cButtonHot tcell.Color
 )
 
-// Colour tags for text views (readable on the light background).
-const (
-	tagDim  = "[#8E8EA3]"
-	tagKey  = "[#B0640F]" // escape-sequence framing
-	tagOK   = "[#2E8B57]"
-	tagErr  = "[#C0392B]"
-	tagWarn = "[#B0640F]"
-	tagHead = "[#7A65C7]"
-)
+// Colour tags for text views (readable on the chosen background).
+var tagDim, tagKey, tagOK, tagErr, tagWarn, tagHead string
 
-func applyTheme() {
+func hex(c int32) string { return fmt.Sprintf("[#%06X]", c) }
+
+func applyTheme(dark bool) {
+	if dark {
+		cBg = tcell.NewHexColor(0x1E1E2E)         // deep blue-grey background
+		cText = tcell.NewHexColor(0xCDD6F4)       // soft white text
+		cDim = tcell.NewHexColor(0x7F849C)        // secondary text
+		cBorder = tcell.NewHexColor(0x585B70)     // muted borders
+		cTitle = tcell.NewHexColor(0xB4BEFE)      // lavender titles
+		cField = tcell.NewHexColor(0x313244)      // input fields
+		cLabel = tcell.NewHexColor(0x89B4FA)      // blue labels
+		cSel = tcell.NewHexColor(0x45475A)        // selected list row
+		cMore = tcell.NewHexColor(0x313244)       // dropdown popup
+		cButton = tcell.NewHexColor(0x2F4A3C)     // green buttons
+		cButtonText = tcell.NewHexColor(0xA6E3A1) //
+		cButtonHot = tcell.NewHexColor(0x6B4A3A)  // focused button
+		tagDim, tagKey, tagOK = hex(0x7F849C), hex(0xFAB387), hex(0xA6E3A1)
+		tagErr, tagWarn, tagHead = hex(0xF38BA8), hex(0xF9E2AF), hex(0xB4BEFE)
+	} else {
+		cBg = tcell.NewHexColor(0xFBF9F5)         // cream background
+		cText = tcell.NewHexColor(0x3A3A4C)       // dark slate text
+		cDim = tcell.NewHexColor(0x8E8EA3)        // secondary text
+		cBorder = tcell.NewHexColor(0xB8A9E0)     // lavender borders
+		cTitle = tcell.NewHexColor(0x7A65C7)      // violet titles
+		cField = tcell.NewHexColor(0xE3EEFB)      // pastel blue input fields
+		cLabel = tcell.NewHexColor(0x4A7FA8)      // steel-blue labels
+		cSel = tcell.NewHexColor(0xD8CCF4)        // selected list row
+		cMore = tcell.NewHexColor(0xF1E8FA)       // dropdown popup
+		cButton = tcell.NewHexColor(0xCFEBDD)     // mint buttons
+		cButtonText = tcell.NewHexColor(0x2F5D44) //
+		cButtonHot = tcell.NewHexColor(0xFFD9C7)  // peach focused button
+		tagDim, tagKey, tagOK = hex(0x8E8EA3), hex(0xB0640F), hex(0x2E8B57)
+		tagErr, tagWarn, tagHead = hex(0xC0392B), hex(0xB0640F), hex(0x7A65C7)
+	}
 	s := &tview.Styles
 	s.PrimitiveBackgroundColor = cBg
 	s.ContrastBackgroundColor = cField
@@ -56,6 +73,23 @@ func applyTheme() {
 	s.TertiaryTextColor = cDim
 	s.InverseTextColor = cText
 	s.ContrastSecondaryTextColor = cDim
+}
+
+// normalizeArgs lets the Windows-style switches /dark, /out and /? work next
+// to Go's -dark / --dark. Only these exact words are rewritten, so a value
+// such as a path after -out is never touched.
+func normalizeArgs(args []string) []string {
+	out := make([]string, len(args))
+	for i, a := range args {
+		switch a {
+		case "/dark", "/out", "/h", "/help":
+			a = "-" + a[1:]
+		case "/?":
+			a = "-h"
+		}
+		out[i] = a
+	}
+	return out
 }
 
 type cmdKind int
@@ -250,11 +284,12 @@ type ui struct {
 
 func main() {
 	outPath := flag.String("out", "", "append sequences to this file/device instead of the controlling terminal (useful for testing)")
+	dark := flag.Bool("dark", false, "use the dark colour scheme (also /dark)")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [-out path]\n\nSends Program Status Protocol (OSC 7501) sequences to the hosting terminal.\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s [-dark|/dark] [-out path]\n\nSends Program Status Protocol (OSC 7501) sequences to the hosting terminal.\n", os.Args[0])
 		flag.PrintDefaults()
 	}
-	flag.Parse()
+	flag.CommandLine.Parse(normalizeArgs(os.Args[1:]))
 
 	var out io.Writer
 	var closeOut func()
@@ -271,7 +306,7 @@ func main() {
 	}
 	defer closeOut()
 
-	applyTheme() // must run before any primitive is created
+	applyTheme(*dark) // must run before any primitive is created
 
 	u := &ui{
 		app: tview.NewApplication(),
