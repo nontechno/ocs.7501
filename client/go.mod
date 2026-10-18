@@ -1,4 +1,4 @@
-module github.com/nontechno/ocs.7501/client
+module ocs.7501.client
 
 go 1.24.0
 
